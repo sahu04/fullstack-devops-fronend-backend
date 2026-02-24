@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>DevOps Project</title>
+</head>
+<body>
+  <h1>Frontend Working 🚀</h1>
+  <button onclick="callAPI()">Call Backend</button>
+
+  <script>
+    function callAPI() {
+      fetch("/api/")
+        .then(res => res.json())
+        .then(data => alert(data.message));
+    }
+  </script>
+</body>
+</html>
