@@ -7,7 +7,11 @@ app = FastAPI()
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
-# Wait for database to be ready
+if not DATABASE_URL:
+    raise Exception("DATABASE_URL not found!")
+
+engine = None
+
 for i in range(10):
     try:
         engine = create_engine(DATABASE_URL)
@@ -15,8 +19,8 @@ for i in range(10):
             conn.execute(text("SELECT 1"))
         print("Database connected!")
         break
-    except Exception:
-        print("Waiting for database...")
+    except Exception as e:
+        print("Waiting for database...", e)
         time.sleep(3)
 
 @app.get("/")
