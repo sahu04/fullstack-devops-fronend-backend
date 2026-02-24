@@ -5,15 +5,17 @@ pipeline {
 
         stage('Checkout Code') {
             steps {
-                git branch: 'main', url: 'git@github.com:harishjangam235/fullstack-devops.git'
+                git branch: 'main',
+                    url: 'git@github.com:harishjangam235/fullstack-devops.git',
+                    credentialsId: 'github-ssh'
             }
         }
 
         stage('Build & Deploy') {
             steps {
                 sh '''
-                docker-compose down || true
-                docker-compose up -d --build
+                docker compose down || true
+                docker compose up -d --build
                 '''
             }
         }
