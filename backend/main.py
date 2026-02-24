@@ -7,6 +7,7 @@ app = FastAPI()
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
+# Wait for database to be ready
 for i in range(10):
     try:
         engine = create_engine(DATABASE_URL)
