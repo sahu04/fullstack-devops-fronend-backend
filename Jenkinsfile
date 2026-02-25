@@ -3,18 +3,20 @@ pipeline {
 
     environment {
         IMAGE_NAME = "ubuntu_backend"
-        NETWORK = "ubuntu_appnet"
-        DB_URL = "postgresql://devops:devops123@postgres:5432/devopsdb"
+        CONTAINER_BLUE = "backend-blue"
+        CONTAINER_GREEN = "backend-green"
+        PORT_BLUE = "8001"
+        PORT_GREEN = "8002"
     }
 
     stages {
 
         stage('Checkout Code') {
-    steps {
-        git branch: 'main',
-            url: 'https://github.com/harishjangam235/fullstack-devops.git'
-    }
-}
+            steps {
+                git branch: 'main',
+                    url: 'https://github.com/harishjangam235/fullstack-devops.git'
+            }
+        }
 
         stage('Build Backend Image') {
             steps {
@@ -27,66 +29,39 @@ pipeline {
 
         stage('Blue-Green Deployment') {
             steps {
-                sh '''
-                echo "Starting Blue-Green Deployment..."
+                script {
 
-                ACTIVE=$(docker ps --format '{{.Names}}' | grep backend-blue || true)
+                    def runningBlue = sh(
+                        script: "docker ps -q -f name=${CONTAINER_BLUE}",
+                        returnStdout: true
+                    ).trim()
 
-                if [ "$ACTIVE" = "backend-blue" ]; then
-                    OLD="backend-blue"
-                    NEW="backend-green"
-                else
-                    OLD="backend-green"
-                    NEW="backend-blue"
-                fi
+                    def runningGreen = sh(
+                        script: "docker ps -q -f name=${CONTAINER_GREEN}",
+                        returnStdout: true
+                    ).trim()
 
-                echo "Old container: $OLD"
-                echo "New container: $NEW"
+                    if (runningBlue) {
 
-                echo "Removing old inactive container if exists..."
-                docker rm -f $NEW || true
+                        echo "Blue is running. Deploying Green..."
 
-                echo "Starting new container..."
-                docker run -d \
-                  --name $NEW \
-                  --network $NETWORK \
-                  -e DATABASE_URL=$DB_URL \
-                  $IMAGE_NAME
+                        sh """
+                        docker rm -f ${CONTAINER_GREEN} || true
+                        docker run -d --name ${CONTAINER_GREEN} -p ${PORT_GREEN}:8000 ${IMAGE_NAME}
+                        docker rm -f ${CONTAINER_BLUE}
+                        """
 
-                echo "Waiting for app to boot..."
-                sleep 10
+                    } else {
 
-                echo "Health check..."
-                docker exec $NEW curl -f http://localhost:8000 || exit 1
+                        echo "Green is running or first deployment. Deploying Blue..."
 
-                echo "Updating Nginx upstream..."
-
-                cat > nginx.conf <<EOF
-events {}
-
-http {
-    upstream backend {
-        server $NEW:8000;
-    }
-
-    server {
-        listen 80;
-
-        location / {
-            proxy_pass http://backend;
-        }
-    }
-}
-EOF
-
-                docker cp nginx.conf nginx:/etc/nginx/nginx.conf
-                docker exec nginx nginx -s reload
-
-                echo "Stopping old container..."
-                docker rm -f $OLD || true
-
-                echo "Blue-Green Deployment Completed Successfully 🚀"
-                '''
+                        sh """
+                        docker rm -f ${CONTAINER_BLUE} || true
+                        docker run -d --name ${CONTAINER_BLUE} -p ${PORT_BLUE}:8000 ${IMAGE_NAME}
+                        docker rm -f ${CONTAINER_GREEN} || true
+                        """
+                    }
+                }
             }
         }
     }
