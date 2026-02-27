@@ -4,6 +4,8 @@ pipeline {
     environment {
         AWS_REGION = "us-west-1"
         ACCOUNT_ID = "605518582307"
+        AWS_ACCESS_KEY_ID = credentials('AWS_ACCESS_KEY_ID')
+        AWS_SECRET_ACCESS_KEY = credentials('AWS_SECRET_ACCESS_KEY')
 
         BACKEND_REPO  = "${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/backend"
         FRONTEND_REPO = "${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/frontend"
@@ -56,6 +58,9 @@ pipeline {
         stage('Deploy to EKS') {
             steps {
                 sh """
+                aws configure set aws_access_key_id ${AWS_ACCESS_KEY_ID}
+                aws configure set aws_secret_access_key ${AWS_SECRET_ACCESS_KEY}
+
                 aws eks update-kubeconfig \
                 --region ${AWS_REGION} \
                 --name fullstack-cluster
