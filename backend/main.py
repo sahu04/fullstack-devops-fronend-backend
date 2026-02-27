@@ -1,24 +1,27 @@
 from fastapi import FastAPI
-from pymongo import MongoClient
+from sqlalchemy import create_engine, text
 import os
 import time
 
 app = FastAPI()
 
-DATABASE_URL = os.getenv("DATABASE_URL", "mongodb://mongo:27017")
+DATABASE_URL = os.getenv("DATABASE_URL")
 
-client = None
+engine = None
 
 for i in range(10):
     try:
-        client = MongoClient(DATABASE_URL)
-        client.admin.command("ping")
-        print("MongoDB connected!")
+        engine = create_engine(DATABASE_URL)
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        print("Database connected!")
         break
     except Exception as e:
-        print("Waiting for MongoDB...", e)
+        print("Waiting for database...", e)
         time.sleep(3)
 
 @app.get("/api")
 def read_api():
-    return {"message": "Backend + MongoDB Working 🚀"}
+    with engine.connect() as conn:
+        conn.execute(text("SELECT 1"))
+    return {"message": "Backend + PostgreSQL Working 🚀"}
