@@ -9,9 +9,10 @@
 
   <script>
     function callAPI() {
-      fetch("/api/")
+      fetch("http://backend-service:8000/api")
         .then(res => res.json())
-        .then(data => alert(data.message));
+        .then(data => alert(data.message))
+        .catch(err => console.error("Error:", err));
     }
   </script>
 </body>
