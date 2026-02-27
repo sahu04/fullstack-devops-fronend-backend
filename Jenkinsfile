@@ -10,7 +10,7 @@ pipeline {
         BACKEND_REPO  = "${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/backend"
         FRONTEND_REPO = "${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/frontend"
 
-        IMAGE_TAG = "${env.BUILD_NUMBER}"
+        IMAGE_TAG = "latest"
     }
 
     stages {
