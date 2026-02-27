@@ -23,8 +23,8 @@ for i in range(10):
         print("Waiting for database...", e)
         time.sleep(3)
 
-@app.get("/")
-def read_root():
+@app.get("/api")
+def read_api():
     with engine.connect() as conn:
         conn.execute(text("SELECT 1"))
     return {"message": "Backend + PostgreSQL Working 🚀"}
