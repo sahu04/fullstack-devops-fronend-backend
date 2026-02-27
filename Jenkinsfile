@@ -8,7 +8,7 @@ pipeline {
         BACKEND_REPO  = "${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/backend"
         FRONTEND_REPO = "${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/frontend"
 
-        IMAGE_TAG = "${BUILD_NUMBER}"
+        IMAGE_TAG = "${env.BUILD_NUMBER}"
     }
 
     stages {
@@ -28,58 +28,42 @@ pipeline {
             }
         }
 
-        stage('Build Images') {
+        stage('Build & Push Images') {
             parallel {
 
-                stage('Build Backend') {
+                stage('Backend') {
                     steps {
                         sh """
                         docker build -t backend:${IMAGE_TAG} ./backend
                         docker tag backend:${IMAGE_TAG} ${BACKEND_REPO}:${IMAGE_TAG}
-                        docker tag backend:${IMAGE_TAG} ${BACKEND_REPO}:latest
+                        docker push ${BACKEND_REPO}:${IMAGE_TAG}
                         """
                     }
                 }
 
-                stage('Build Frontend') {
+                stage('Frontend') {
                     steps {
                         sh """
                         docker build -t frontend:${IMAGE_TAG} ./frontend
                         docker tag frontend:${IMAGE_TAG} ${FRONTEND_REPO}:${IMAGE_TAG}
-                        docker tag frontend:${IMAGE_TAG} ${FRONTEND_REPO}:latest
-                        """
-                    }
-                }
-            }
-        }
-
-        stage('Push Images') {
-            parallel {
-
-                stage('Push Backend') {
-                    steps {
-                        sh """
-                        docker push ${BACKEND_REPO}:${IMAGE_TAG}
-                        docker push ${BACKEND_REPO}:latest
-                        """
-                    }
-                }
-
-                stage('Push Frontend') {
-                    steps {
-                        sh """
                         docker push ${FRONTEND_REPO}:${IMAGE_TAG}
-                        docker push ${FRONTEND_REPO}:latest
                         """
                     }
                 }
             }
         }
-    }
 
-    post {
-        always {
-            sh "docker system prune -f"
+        stage('Deploy to EKS') {
+            steps {
+                sh """
+                aws eks update-kubeconfig \
+                --region ${AWS_REGION} \
+                --name fullstack-cluster
+                """
+
+                # Apply all app manifests (frontend + backend + database)
+                sh "kubectl apply -f apps/"
+            }
         }
     }
 }
