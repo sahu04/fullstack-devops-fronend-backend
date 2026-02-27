@@ -2,63 +2,74 @@ pipeline {
     agent any
 
     environment {
-        IMAGE_NAME = "ubuntu_backend"
-        CONTAINER_BLUE = "backend-blue"
-        CONTAINER_GREEN = "backend-green"
-        PORT_BLUE = "8001"
-        PORT_GREEN = "8002"
+        AWS_REGION = "us-west-1"
+        ACCOUNT_ID = "605518582307"
+
+        BACKEND_REPO  = "${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/backend"
+        FRONTEND_REPO = "${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/frontend"
+
+        IMAGE_TAG = "${BUILD_NUMBER}"
     }
 
     stages {
 
         stage('Checkout Code') {
             steps {
-                git branch: 'main',
-                    url: 'https://github.com/harishjangam235/fullstack-devops.git'
+                git branch: 'main', url: 'https://github.com/your-org/your-repo.git'
             }
         }
 
-        stage('Build Backend Image') {
+        stage('Login to ECR') {
             steps {
-                sh '''
-                echo "Building backend image..."
-                docker build -t $IMAGE_NAME ./backend
-                '''
+                sh """
+                aws ecr get-login-password --region ${AWS_REGION} | \
+                docker login --username AWS --password-stdin ${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
+                """
             }
         }
 
-        stage('Blue-Green Deployment') {
-            steps {
-                script {
+        stage('Build Images') {
+            parallel {
 
-                    def runningBlue = sh(
-                        script: "docker ps -q -f name=${CONTAINER_BLUE}",
-                        returnStdout: true
-                    ).trim()
-
-                    def runningGreen = sh(
-                        script: "docker ps -q -f name=${CONTAINER_GREEN}",
-                        returnStdout: true
-                    ).trim()
-
-                    if (runningBlue) {
-
-                        echo "Blue is running. Deploying Green..."
-
+                stage('Build Backend') {
+                    steps {
                         sh """
-                        docker rm -f ${CONTAINER_GREEN} || true
-                        docker run -d --name ${CONTAINER_GREEN} -p ${PORT_GREEN}:8000 ${IMAGE_NAME}
-                        docker rm -f ${CONTAINER_BLUE}
+                        docker build -t backend:${IMAGE_TAG} ./backend
+                        docker tag backend:${IMAGE_TAG} ${BACKEND_REPO}:${IMAGE_TAG}
+                        docker tag backend:${IMAGE_TAG} ${BACKEND_REPO}:latest
                         """
+                    }
+                }
 
-                    } else {
-
-                        echo "Green is running or first deployment. Deploying Blue..."
-
+                stage('Build Frontend') {
+                    steps {
                         sh """
-                        docker rm -f ${CONTAINER_BLUE} || true
-                        docker run -d --name ${CONTAINER_BLUE} -p ${PORT_BLUE}:8000 ${IMAGE_NAME}
-                        docker rm -f ${CONTAINER_GREEN} || true
+                        docker build -t frontend:${IMAGE_TAG} ./frontend
+                        docker tag frontend:${IMAGE_TAG} ${FRONTEND_REPO}:${IMAGE_TAG}
+                        docker tag frontend:${IMAGE_TAG} ${FRONTEND_REPO}:latest
+                        """
+                    }
+                }
+            }
+        }
+
+        stage('Push Images') {
+            parallel {
+
+                stage('Push Backend') {
+                    steps {
+                        sh """
+                        docker push ${BACKEND_REPO}:${IMAGE_TAG}
+                        docker push ${BACKEND_REPO}:latest
+                        """
+                    }
+                }
+
+                stage('Push Frontend') {
+                    steps {
+                        sh """
+                        docker push ${FRONTEND_REPO}:${IMAGE_TAG}
+                        docker push ${FRONTEND_REPO}:latest
                         """
                     }
                 }
@@ -67,11 +78,8 @@ pipeline {
     }
 
     post {
-        success {
-            echo "Deployment Successful 🚀"
-        }
-        failure {
-            echo "Deployment Failed ❌"
+        always {
+            sh "docker system prune -f"
         }
     }
 }
