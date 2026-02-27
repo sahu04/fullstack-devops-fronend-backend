@@ -66,7 +66,7 @@ pipeline {
                 --name fullstack-cluster
                 """
 
-                # Apply all app manifests (frontend + backend + database)
+              
                 sh "kubectl apply -f apps/"
             }
         }
